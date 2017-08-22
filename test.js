@@ -1,6 +1,4 @@
-const _ = require('lodash')
 const usbboot = require('./lib/shared/sdk/usbboot')
-const usb = require('usb')
 const fs = require('fs')
 
 usbboot.scan({
@@ -10,17 +8,9 @@ usbboot.scan({
   }
 }).then((devices) => {
   console.log(devices)
-  // return usbboot.flash(_.first(devices), {
-  // })
 }).then(() => {
   console.log('Done')
 }).catch((error) => {
   console.log('There was an error')
   console.error(error)
-  console.error(error.stack)
-  console.error(error.stacktrace)
-
-  setTimeout(() => {
-    process.exit(1)
-  }, 1000)
 })
