@@ -16,62 +16,6 @@ endif
 BUILD_TEMPORARY_DIRECTORY = $(BUILD_DIRECTORY)/.tmp
 
 # ---------------------------------------------------------------------
-# Application configuration
-# ---------------------------------------------------------------------
-
-ELECTRON_VERSION = $(shell jq -r '.devDependencies["electron"]' package.json)
-NODE_VERSION = 6.1.0
-COMPANY_NAME = Resinio Ltd
-APPLICATION_NAME = $(shell jq -r '.displayName' package.json)
-APPLICATION_DESCRIPTION = $(shell jq -r '.description' package.json)
-APPLICATION_COPYRIGHT = $(shell cat electron-builder.yml | shyaml get-value copyright)
-
-BINTRAY_ORGANIZATION = resin-io
-BINTRAY_REPOSITORY_DEBIAN = debian
-BINTRAY_REPOSITORY_REDHAT = redhat
-
-# ---------------------------------------------------------------------
-# Extra variables
-# ---------------------------------------------------------------------
-
-TARGET_ARCH_DEBIAN = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t debian)
-TARGET_ARCH_REDHAT = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t redhat)
-TARGET_ARCH_APPIMAGE = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t appimage)
-TARGET_ARCH_ELECTRON_BUILDER = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t electron-builder)
-PLATFORM_PKG = $(shell ./scripts/build/platform-convert.sh -r $(PLATFORM) -t pkg)
-ENTRY_POINT_CLI = lib/cli/etcher.js
-ETCHER_CLI_BINARY = $(APPLICATION_NAME_LOWERCASE)
-ifeq ($(TARGET_PLATFORM),win32)
-ETCHER_CLI_BINARY = $(APPLICATION_NAME_LOWERCASE).exe
-endif
-
-APPLICATION_NAME_LOWERCASE = $(shell echo $(APPLICATION_NAME) | tr A-Z a-z)
-APPLICATION_VERSION_DEBIAN = $(shell echo $(APPLICATION_VERSION) | tr "-" "~")
-APPLICATION_VERSION_REDHAT = $(shell echo $(APPLICATION_VERSION) | tr "-" "~")
-
-# ---------------------------------------------------------------------
-# Release type
-# ---------------------------------------------------------------------
-
-# Add the current commit to the version if release type is "snapshot"
-RELEASE_TYPE ?= snapshot
-PACKAGE_JSON_VERSION = $(shell jq -r '.version' package.json)
-ifeq ($(RELEASE_TYPE),production)
-APPLICATION_VERSION = $(PACKAGE_JSON_VERSION)
-S3_BUCKET = resin-production-downloads
-BINTRAY_COMPONENT = $(APPLICATION_NAME_LOWERCASE)
-endif
-ifeq ($(RELEASE_TYPE),snapshot)
-CURRENT_COMMIT_HASH = $(shell git log -1 --format="%h")
-APPLICATION_VERSION = $(PACKAGE_JSON_VERSION)+$(CURRENT_COMMIT_HASH)
-S3_BUCKET = resin-nightly-downloads
-BINTRAY_COMPONENT = $(APPLICATION_NAME_LOWERCASE)-devel
-endif
-ifndef APPLICATION_VERSION
-$(error Invalid release type: $(RELEASE_TYPE))
-endif
-
-# ---------------------------------------------------------------------
 # Operating system and architecture detection
 # ---------------------------------------------------------------------
 
@@ -100,7 +44,7 @@ else
 			HOST_ARCH = x86
 		endif
 		ifeq ($(shell uname -m),armv7l)
-			HOST_ARCH = armv7l
+			HOST_ARCH = armv7hf
 		endif
 	endif
 	ifeq ($(shell uname -s),Darwin)
@@ -135,6 +79,62 @@ ifeq ($(PLATFORM),linux)
 $(error Can't build $(TARGET_ARCH) binaries on a $(HOST_ARCH) host)
 		endif
 	endif
+endif
+
+# ---------------------------------------------------------------------
+# Application configuration
+# ---------------------------------------------------------------------
+
+ELECTRON_VERSION = $(shell jq -r '.devDependencies["electron"]' package.json)
+NODE_VERSION = 6.1.0
+COMPANY_NAME = Resinio Ltd
+APPLICATION_NAME = $(shell jq -r '.displayName' package.json)
+APPLICATION_DESCRIPTION = $(shell jq -r '.description' package.json)
+APPLICATION_COPYRIGHT = $(shell cat electron-builder.yml | shyaml get-value copyright)
+
+BINTRAY_ORGANIZATION = resin-io
+BINTRAY_REPOSITORY_DEBIAN = debian
+BINTRAY_REPOSITORY_REDHAT = redhat
+
+# ---------------------------------------------------------------------
+# Extra variables
+# ---------------------------------------------------------------------
+
+TARGET_ARCH_DEBIAN = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t debian)
+TARGET_ARCH_REDHAT = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t redhat)
+TARGET_ARCH_APPIMAGE = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t appimage)
+TARGET_ARCH_ELECTRON_BUILDER = $(shell ./scripts/build/architecture-convert.sh -r $(TARGET_ARCH) -t electron-builder)
+PLATFORM_PKG = $(shell ./scripts/build/platform-convert.sh -r $(PLATFORM) -t pkg)
+ENTRY_POINT_CLI = lib/cli/etcher.js
+ETCHER_CLI_BINARY = $(APPLICATION_NAME_LOWERCASE)
+ifeq ($(PLATFORM),win32)
+ETCHER_CLI_BINARY = $(APPLICATION_NAME_LOWERCASE).exe
+endif
+
+APPLICATION_NAME_LOWERCASE = $(shell echo $(APPLICATION_NAME) | tr A-Z a-z)
+APPLICATION_VERSION_DEBIAN = $(shell echo $(APPLICATION_VERSION) | tr "-" "~")
+APPLICATION_VERSION_REDHAT = $(shell echo $(APPLICATION_VERSION) | tr "-" "~")
+
+# ---------------------------------------------------------------------
+# Release type
+# ---------------------------------------------------------------------
+
+# Add the current commit to the version if release type is "snapshot"
+RELEASE_TYPE ?= snapshot
+PACKAGE_JSON_VERSION = $(shell jq -r '.version' package.json)
+ifeq ($(RELEASE_TYPE),production)
+APPLICATION_VERSION = $(PACKAGE_JSON_VERSION)
+S3_BUCKET = resin-production-downloads
+BINTRAY_COMPONENT = $(APPLICATION_NAME_LOWERCASE)
+endif
+ifeq ($(RELEASE_TYPE),snapshot)
+CURRENT_COMMIT_HASH = $(shell git log -1 --format="%h")
+APPLICATION_VERSION = $(PACKAGE_JSON_VERSION)+$(CURRENT_COMMIT_HASH)
+S3_BUCKET = resin-nightly-downloads
+BINTRAY_COMPONENT = $(APPLICATION_NAME_LOWERCASE)-devel
+endif
+ifndef APPLICATION_VERSION
+$(error Invalid release type: $(RELEASE_TYPE))
 endif
 
 # ---------------------------------------------------------------------
@@ -228,7 +228,7 @@ $(BUILD_DIRECTORY)/$(APPLICATION_NAME)-cli-$(APPLICATION_VERSION)-$(PLATFORM)-$(
 	$(BUILD_DIRECTORY)/$(APPLICATION_NAME)-cli-$(APPLICATION_VERSION)-$(PLATFORM)-$(TARGET_ARCH)-app \
 	| $(BUILD_DIRECTORY)
 	mkdir $@
-	$(NPX) pkg --output $@/$(ETCHER_CLI_BINARY) -t node6-$(PLATFORM_PKG)-$(TARGET_ARCH) $</$(ENTRY_POINT_CLI)
+	cd $< && ../../$(NPX) pkg --output ../../$@/$(ETCHER_CLI_BINARY) -t node6-$(PLATFORM_PKG)-$(TARGET_ARCH) $(ENTRY_POINT_CLI)
 	./scripts/build/dependencies-npm-extract-addons.sh \
 		-d $</node_modules \
 		-o $@/node_modules
@@ -536,7 +536,7 @@ lint-html:
 
 lint-spell:
 	codespell.py \
-		--skip *.gz,*.bz2,*.xz,*.zip,*.img,*.dmg,*.iso,*.rpi-sdcard,.DS_Store \
+		--skip *.gz,*.bz2,*.xz,*.zip,*.img,*.dmg,*.iso,*.rpi-sdcard,.DS_Store,*.dtb,*.dtbo,*.dat,*.elf,*.bin,*.foo,xz-without-extension \
 		lib tests docs scripts Makefile *.md LICENSE
 
 lint: lint-js lint-sass lint-cpp lint-html lint-spell

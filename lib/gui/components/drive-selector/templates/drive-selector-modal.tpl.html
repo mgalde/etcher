@@ -1,6 +1,6 @@
 <div class="modal-header">
   <h4 class="modal-title">Select a Drive</h4>
-  <button class="close" ng-click="modal.closeModal()">&times;</button>
+  <button tabindex="14" class="close" ng-click="modal.closeModal()">&times;</button>
 </div>
 
 <div class="modal-body">
@@ -9,9 +9,19 @@
       ng-disabled="!modal.constraints.isDriveValid(drive, modal.state.getImage())"
       ng-dblclick="modal.selectDriveAndClose(drive)"
       ng-click="modal.toggleDrive(drive)">
-        <div>
+        <img class="list-group-item-section" alt="Drive device type logo"
+          ng-if="drive.icon"
+          ng-src="./assets/{{drive.icon}}.svg"
+          width="25"
+          height="30">
+        <div
+          class="list-group-item-section list-group-item-section-expanded"
+          tabindex="{{ 15 + $index }}"
+          ng-keypress="modal.keyboardToggleDrive(drive, $event)">
+
           <h4 class="list-group-item-heading">{{ drive.description }} -
-            <span class="word-keep">{{ drive.size | closestUnit }}</span>
+            <span class="word-keep"
+              ng-show="drive.size">{{ drive.size | closestUnit }}</span>
           </h4>
           <p class="list-group-item-text">{{ drive.displayName }}</p>
 
@@ -26,8 +36,9 @@
             </span>
 
           </footer>
+          <progress ng-if="drive.progress" value="{{ drive.progress }}" max="100"></progress>
         </div>
-        <span class="tick tick--success"
+        <span class="list-group-item-section tick tick--success"
           ng-show="modal.constraints.isDriveValid(drive, modal.state.getImage())"
           ng-disabled="!modal.state.isCurrentDrive(drive.device)"></span>
     </li>
@@ -43,6 +54,7 @@
 
 <div class="modal-footer">
   <button class="button button-primary button-block"
+    tabindex="{{ 15 + modal.getDrives().length }}"
     ng-click="modal.closeModal()"
     ng-disabled="!modal.state.hasDrive()">Continue</button>
 </div>

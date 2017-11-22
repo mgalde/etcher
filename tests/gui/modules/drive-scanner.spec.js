@@ -22,23 +22,19 @@ const drivelist = require('drivelist')
 const driveScanner = require('../../../lib/gui/modules/drive-scanner')
 
 describe('Browser: driveScanner', function () {
-  describe('given no available drives', function () {
-    beforeEach(function () {
-      this.drivelistStub = m.sinon.stub(drivelist, 'list')
-      this.drivelistStub.yields(null, [])
-    })
-
-    afterEach(function () {
-      this.drivelistStub.restore()
-    })
-
+  describe('detected devices should be an array', function () {
     it('should emit an empty array', function (done) {
-      driveScanner.once('drives', function (drives) {
-        m.chai.expect(drives).to.deep.equal([])
+      const spy = m.sinon.spy()
+
+      driveScanner.once('devices', function (drives) {
+        m.chai.expect(drives).to.be.an.instanceof(Array)
+        m.chai.expect(spy).to.not.have.been.called
+        driveScanner.removeListener('error', spy)
         driveScanner.stop()
         done()
       })
 
+      driveScanner.on('error', spy)
       driveScanner.start()
     })
   })
@@ -46,17 +42,19 @@ describe('Browser: driveScanner', function () {
   describe('given only system available drives', function () {
     beforeEach(function () {
       this.drivelistStub = m.sinon.stub(drivelist, 'list')
-      this.drivelistStub.yields(null, [ {
-        device: '/dev/sda',
-        description: 'WDC WD10JPVX-75J',
-        size: '931.5G',
-        mountpoints: [
-          {
-            path: '/'
-          }
-        ],
-        system: true
-      } ])
+      this.drivelistStub.yields(null, [
+        {
+          device: '/dev/sda',
+          description: 'WDC WD10JPVX-75J',
+          size: '931.5G',
+          mountpoints: [
+            {
+              path: '/'
+            }
+          ],
+          system: true
+        }
+      ])
     })
 
     afterEach(function () {
@@ -64,12 +62,17 @@ describe('Browser: driveScanner', function () {
     })
 
     it('should emit an empty array', function (done) {
-      driveScanner.once('drives', function (drives) {
+      const spy = m.sinon.spy()
+
+      driveScanner.once('devices', function (drives) {
         m.chai.expect(drives).to.deep.equal([])
+        m.chai.expect(spy).to.not.have.been.called
+        driveScanner.removeListener('error', spy)
         driveScanner.stop()
         done()
       })
 
+      driveScanner.on('error', spy)
       driveScanner.start()
     })
   })
@@ -132,7 +135,9 @@ describe('Browser: driveScanner', function () {
       })
 
       it('should emit the non removable drives', function (done) {
-        driveScanner.once('drives', function (drives) {
+        const spy = m.sinon.spy()
+
+        driveScanner.once('devices', function (drives) {
           m.chai.expect(drives).to.deep.equal([
             {
               device: '/dev/sdb',
@@ -144,6 +149,7 @@ describe('Browser: driveScanner', function () {
                   path: '/mnt/foo'
                 }
               ],
+              adapter: 'standard',
               system: false
             },
             {
@@ -156,14 +162,18 @@ describe('Browser: driveScanner', function () {
                   path: '/mnt/bar'
                 }
               ],
+              adapter: 'standard',
               system: false
             }
           ])
 
+          m.chai.expect(spy).to.not.have.been.called
+          driveScanner.removeListener('error', spy)
           driveScanner.stop()
           done()
         })
 
+        driveScanner.on('error', spy)
         driveScanner.start()
       })
     })
@@ -223,7 +233,9 @@ describe('Browser: driveScanner', function () {
       })
 
       it('should emit the non removable drives', function (done) {
-        driveScanner.once('drives', function (drives) {
+        const spy = m.sinon.spy()
+
+        driveScanner.once('devices', function (drives) {
           m.chai.expect(drives).to.deep.equal([
             {
               device: '\\\\.\\PHYSICALDRIVE2',
@@ -231,6 +243,7 @@ describe('Browser: driveScanner', function () {
               description: 'Foo',
               size: '14G',
               mountpoints: [],
+              adapter: 'standard',
               system: false
             },
             {
@@ -243,14 +256,18 @@ describe('Browser: driveScanner', function () {
                   path: 'F:'
                 }
               ],
+              adapter: 'standard',
               system: false
             }
           ])
 
+          m.chai.expect(spy).to.not.have.been.called
+          driveScanner.removeListener('error', spy)
           driveScanner.stop()
           done()
         })
 
+        driveScanner.on('error', spy)
         driveScanner.start()
       })
     })
@@ -279,13 +296,18 @@ describe('Browser: driveScanner', function () {
       })
 
       it('should use the drive letter as the name', function (done) {
-        driveScanner.once('drives', function (drives) {
+        const spy = m.sinon.spy()
+
+        driveScanner.once('devices', function (drives) {
           m.chai.expect(drives).to.have.length(1)
           m.chai.expect(drives[0].displayName).to.equal('F:')
+          m.chai.expect(spy).to.not.have.been.called
+          driveScanner.removeListener('error', spy)
           driveScanner.stop()
           done()
         })
 
+        driveScanner.on('error', spy)
         driveScanner.start()
       })
     })
@@ -320,13 +342,18 @@ describe('Browser: driveScanner', function () {
       })
 
       it('should join all the mountpoints in `name`', function (done) {
-        driveScanner.once('drives', function (drives) {
+        const spy = m.sinon.spy()
+
+        driveScanner.once('devices', function (drives) {
           m.chai.expect(drives).to.have.length(1)
           m.chai.expect(drives[0].displayName).to.equal('F:, G:, H:')
+          m.chai.expect(spy).to.not.have.been.called
+          driveScanner.removeListener('error', spy)
           driveScanner.stop()
           done()
         })
 
+        driveScanner.on('error', spy)
         driveScanner.start()
       })
     })
@@ -343,7 +370,7 @@ describe('Browser: driveScanner', function () {
     })
 
     it('should emit the error', function (done) {
-      driveScanner.on('error', function (error) {
+      driveScanner.once('error', function (error) {
         m.chai.expect(error).to.be.an.instanceof(Error)
         m.chai.expect(error.message).to.equal('scan error')
         driveScanner.stop()
